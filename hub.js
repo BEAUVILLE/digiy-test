@@ -1,511 +1,302 @@
-/* DIGIY HUB — F16 data-driven (public + pro)
-   - 1 source of truth: MODULES[]
-   - filtre: all/public/pro
-   - recherche
-   - boutons auto (désactivés si url manquante)
-   - téléphone mémorisé + option d'ajout param ?phone=
+/* DIGIY HUB — F16 V2 (data-driven + overlay + fallback)
+   - garde le style vitrine
+   - rend les 19 modules gérables en 1 endroit
+   - overlay iframe + fallback (si WP / XFO bloque)
 */
 
-(function(){
-  "use strict";
+(() => {
+  const $ = (q, root=document) => root.querySelector(q);
+  const $$ = (q, root=document) => Array.from(root.querySelectorAll(q));
 
-  // ====== CONFIG ======
-  const STORAGE_PHONE_KEY = "DIGIY_HUB_PHONE";
-  const DEFAULT_PHONE = "+221778765785"; // tu peux laisser, ou vide si tu veux
+  // ====== 1) CONFIG : mets tes liens ici (tu peux garder les tiens existants) ======
+  // IMPORTANT: fret ajouté (liens PIN directs)
+  const LINKS = {
+    // ⚠️ Ici tu gardes tes URL existantes (je mets quelques placeholders)
+    bonneAffaire:     "https://beauville.github.io/digiy-market/",         // exemple
+    driverPro:        "https://beauville.github.io/digiy-driver-pro/",
+    driverClient:     "https://beauville.github.io/digiy-driver-client/",
+    caissePro:        "https://beauville.github.io/digiy-caisse-pro/",
+    loc:              "https://beauville.github.io/digiy-loc-pro/",
+    resto:            "https://beauville.github.io/digiy-resto/",
+    pay:              "https://beauville.github.io/digiy-pay/",
+    build:            "https://beauville.github.io/digiy-build-pro/",
+    market:           "https://beauville.github.io/digiy-market/",
+    jobs:             "https://beauville.github.io/digiy-jobs/",
+    ndimbalMap:       "https://beauville.github.io/digiy-mdimbal-map/",
+    resa:             "https://beauville.github.io/digiy-resa/",
+    resaTable:        "https://beauville.github.io/digiy-resa-table/",
+    notable:          "https://beauville.github.io/digiy-notable/",
+    explore:          "https://beauville.github.io/digiy-explore/",
+    inscriptionPro:   "https://beauville.github.io/inscription-digiy/",
+    espacePro:        "https://beauville.github.io/digiy-espace-pro/",
 
-  // ⚠️ Mets ici tes vraies routes "caisse/activation" si tu en as
-  const HUB_PRO_URL = "https://beauville.github.io/digiy-hub/"; // ou ton vrai HUB PRO
-  const ACCESS_URL  = "https://beauville.github.io/digiy-hub/"; // page "j'ai déjà mon accès" (pin/login si tu veux)
-  const ACTIVATE_URL = "https://beauville.github.io/digiy-pay/"; // si pas encore, laisse, ça se désactive
+    // ✅ FRET PRO (PIN direct)
+    fretClientPro:    "https://beauville.github.io/fret-client-pro/pin.html",
+    fretChauffeurPro: "https://beauville.github.io/fret-chauffeur-pro/pin.html",
+  };
 
-  // ✅ Data: modules (mets tes vrais liens, le reste peut rester "à brancher")
+  // ====== 2) DATA : 19 modules en 1 liste ======
+  // mode:
+  //  - "iframe" : tente overlay
+  //  - "tab"    : ouvre direct en onglet (utile WP / sécurité)
   const MODULES = [
-    // --- PUBLIC (accès libre) ---
-    {
-      key: "mdimbal_map",
-      name: "NDIMBAL MAP",
-      desc: "Carte terrain · entraide · repérage. Public.",
-      icon: "🗺️",
-      kind: "public",
-      status: "live",
-      url: "https://beauville.github.io/digiy-mdimbal-map/",
-      supportsPhoneParam: false,
-    },
-    {
-      key: "explore_public",
-      name: "DIGIY EXPLORE",
-      desc: "Spots · tourisme · bons plans. Public (si tu l’ouvres).",
-      icon: "🧭",
-      kind: "public",
-      status: "beta",
-      url: "https://beauville.github.io/digiy-explore/",
-      supportsPhoneParam: false,
-    },
-    {
-      key: "market_public",
-      name: "DIGIY MARKET",
-      desc: "Deals · marketplace · terrain. Public (si tu l’ouvres).",
-      icon: "🛒",
-      kind: "public",
-      status: "soon",
-      url: "https://beauville.github.io/digiy-market/",
-      supportsPhoneParam: false,
-    },
-    {
-      key: "jobs_public",
-      name: "DIGIY JOBS",
-      desc: "Infos emploi · orientation · dossiers. Public (si tu l’ouvres).",
-      icon: "🧰",
-      kind: "public",
-      status: "soon",
-      url: "https://beauville.github.io/digiy-jobs/",
-      supportsPhoneParam: false,
-    },
+    { key:"bonneAffaire",  icon:"💥", name:"DIGIY BONNE AFFAIRE",  tag:"BONS PLANS • PROMOS", desc:"Les meilleures opportunités locales : promos, deals, bonnes affaires terrain.", badge:{text:"OFFICIEL", cls:"new"}, mode:"iframe" },
+    { key:"driverPro",     icon:"🚗", name:"DIGIY DRIVER PRO",     tag:"CHAUFFEUR PROFESSIONNEL", desc:"Accepter courses, GPS temps réel, encaissements directs.", badge:{text:"LIVE", cls:""}, mode:"iframe" },
+    { key:"driverClient",  icon:"🚕", name:"DIGIY DRIVER CLIENT",  tag:"COMMANDER UNE COURSE", desc:"Commande ta course VTC au Sénégal. Paiement direct. 0% commission.", badge:{text:"LIVE", cls:""}, mode:"iframe" },
+    { key:"caissePro",     icon:"🧾", name:"DIGIY CAISSE PRO",     tag:"POS + SYNC BATCH", desc:"Caisse pro + sync ultra-légère. Encaissement terrain.", badge:{text:"NOUVEAU", cls:"new"}, mode:"iframe" },
+    { key:"loc",           icon:"🏠", name:"DIGIY LOC",           tag:"LOCATION SANS OTA", desc:"Alternative Booking/Airbnb, sans commission, en direct propriétaire.", badge:{text:"LIVE", cls:""}, mode:"iframe" },
+    { key:"resto",         icon:"🍽️", name:"DIGIY RESTO",         tag:"VITRINE RESTAURANT", desc:"Menus, photos, horaires, localisation. Réservation directe.", badge:{text:"LIVE", cls:""}, mode:"iframe" },
+    { key:"pay",           icon:"💳", name:"DIGIY PAY",           tag:"WALLET UNIFIÉ", desc:"Wave / OM / CB. Historique, suivi, activation modules.", badge:{text:"PRIORITÉ", cls:"prio"}, mode:"iframe" },
+    { key:"build",         icon:"🏗️", name:"DIGIY BUILD",         tag:"ARTISANS & BTP", desc:"Devis, galerie, contact. Humain. Direct. Sans commission.", badge:{text:"LIVE", cls:""}, mode:"iframe" },
+    { key:"market",        icon:"🛍️", name:"DIGIY MARKET",        tag:"MARKETPLACE LOCALE", desc:"Acheter/vendre local. Annonces propres. Sans commission.", badge:{text:"PRIORITÉ", cls:"prio"}, mode:"iframe" },
+    { key:"jobs",          icon:"💼", name:"DIGIY JOBS",          tag:"EMPLOI & TALENTS", desc:"Offres, candidatures, profils. Pont talents–employeurs.", badge:{text:"PRIORITÉ", cls:"prio"}, mode:"iframe" },
+    { key:"ndimbalMap",    icon:"🗺️", name:"DIGIY NDIMBAL MAP",    tag:"CARTE COMMUNAUTÉ", desc:"Annuaire géolocalisé du Sénégal : pros, quartiers, filtres.", badge:{text:"GRATUIT", cls:"free"}, mode:"iframe" },
+    { key:"resa",          icon:"📅", name:"DIGIY RESA",          tag:"RÉSERVATIONS", desc:"Planning, confirmations, gestion des réservations. Direct, sans commission.", badge:{text:"LIVE", cls:""}, mode:"iframe" },
+    { key:"resaTable",     icon:"🪑", name:"DIGIY RESA TABLE",     tag:"RÉSA RESTAURANT", desc:"Réservations de tables restaurant. Plan de salle, dispos temps réel.", badge:{text:"LIVE", cls:""}, mode:"iframe" },
+    { key:"notable",       icon:"📓", name:"DIGIY NOTABLE",       tag:"NOTES & DOCS", desc:"Notes, fiches terrain, procédures. Organise ton savoir pro.", badge:{text:"PRIORITÉ", cls:"prio"}, mode:"iframe" },
+    { key:"explore",       icon:"🧭", name:"DIGIY EXPLORE",       tag:"TOURISME & DÉCOUVERTE", desc:"Découvrir l'Afrique • guides • visibilité • expériences authentiques.", badge:{text:"LIVE", cls:""}, mode:"iframe" },
+    { key:"inscriptionPro",icon:"📝", name:"INSCRIPTION PRO",     tag:"NOUVEAU COMPTE PRO", desc:"Inscription intelligente. Choisis ton module, on calcule ton tarif.", badge:{text:"NOUVEAU", cls:"new"}, mode:"iframe" },
+    { key:"espacePro",     icon:"🧰", name:"ESPACE PRO",          tag:"PORTAIL PRO", desc:"Ouvre tes modules (après paiement). Slug + PIN. Tour de contrôle.", badge:{text:"LIVE", cls:""}, mode:"iframe" },
 
-    // --- PRO (accès requis) ---
-    {
-      key: "loc_pro",
-      name: "DIGIY LOC PRO",
-      desc: "Locations · hébergements · planning. Accès PRO requis.",
-      icon: "🏠",
-      kind: "pro",
-      status: "live",
-      url: "https://beauville.github.io/digiy-loc-pro/",
-      supportsPhoneParam: true, // si ton module sait lire ?phone=
-      requiresAccess: true
-    },
-    {
-      key: "driver_pro",
-      name: "DIGIY DRIVER PRO",
-      desc: "Chauffeur · courses · cockpit. Accès PRO requis.",
-      icon: "🚗",
-      kind: "pro",
-      status: "live",
-      url: "https://beauville.github.io/digiy-driver-pro/",
-      supportsPhoneParam: true,
-      requiresAccess: true
-    },
-    {
-      key: "build_pro",
-      name: "DIGIY BUILD PRO",
-      desc: "Artisans · devis · chantiers. Accès PRO requis.",
-      icon: "🧱",
-      kind: "pro",
-      status: "beta",
-      url: "https://beauville.github.io/digiy-build-pro/",
-      supportsPhoneParam: true,
-      requiresAccess: true
-    },
-    {
-      key: "store_pro",
-      name: "DIGIY STORE PRO",
-      desc: "Boutique · gestion · caisse terrain. Accès PRO requis.",
-      icon: "🏪",
-      kind: "pro",
-      status: "soon",
-      url: "", // à brancher
-      supportsPhoneParam: false,
-      requiresAccess: true
-    },
-    {
-      key: "pay",
-      name: "DIGIY PAY",
-      desc: "Wave/QR · paiement direct au pro. (Activation / caisse)",
-      icon: "💸",
-      kind: "pro",
-      status: "beta",
-      url: ACTIVATE_URL, // si vide => bouton désactivé
-      supportsPhoneParam: true,
-      requiresAccess: false
-    },
-    {
-      key: "langue",
-      name: "DIGIY LANGUE",
-      desc: "Langues locales · micro-copies · terrain.",
-      icon: "🗣️",
-      kind: "pro",
-      status: "soon",
-      url: "", // à brancher
-      supportsPhoneParam: false,
-      requiresAccess: false
-    },
-    {
-      key: "style",
-      name: "DIGIY STYLE",
-      desc: "Mode · beauté · style local. (quand tu l’ouvres)",
-      icon: "👗",
-      kind: "pro",
-      status: "soon",
-      url: "", // à brancher
-      supportsPhoneParam: false,
-      requiresAccess: false
-    },
-    {
-      key: "resto_caisse",
-      name: "DIGIY RESTO / CAISSE",
-      desc: "Resto · tickets · caisse terrain.",
-      icon: "🍽️",
-      kind: "pro",
-      status: "soon",
-      url: "", // à brancher
-      supportsPhoneParam: false,
-      requiresAccess: true
-    },
-    {
-      key: "sap",
-      name: "SAP DIGIYLYFE",
-      desc: "Progiciel commerçant · back-office · souverain.",
-      icon: "🧠",
-      kind: "pro",
-      status: "soon",
-      url: "", // à brancher
-      supportsPhoneParam: false,
-      requiresAccess: true
-    },
+    // ✅ FRET
+    { key:"fretClientPro", icon:"📦", name:"DIGIY FRET CLIENT PRO", tag:"DEMANDER UN TRANSPORT", desc:"Créer une demande fret (colis / transport). Accès PRO via PIN.", badge:{text:"NOUVEAU", cls:"new"}, mode:"iframe" },
+    { key:"fretChauffeurPro", icon:"🚚", name:"DIGIY FRET CHAUFFEUR PRO", tag:"ACCEPTER DES MISSIONS", desc:"Recevoir/Accepter missions fret. Paiement direct. Accès PRO via PIN.", badge:{text:"PRIORITÉ", cls:"prio"}, mode:"iframe" },
   ];
 
-  // ====== STATE ======
-  let activeFilter = "all";
-  let searchTerm = "";
+  // ====== 3) DOM refs (tes IDs existants) ======
+  const grid = $(".modules-grid");
+  const overlay = $("#hubOverlay");
+  const frame = $("#hubFrame");
+  const backBtn = $("#hubBackBtn");
+  const closeBtn = $("#hubCloseBtn");
 
-  // ====== HELPERS ======
-  const $ = (id) => document.getElementById(id);
-  const safeLower = (s) => (s || "").toString().toLowerCase();
-  const hasUrl = (m) => typeof m.url === "string" && m.url.trim().length > 0;
+  const btnDeals = $("#btnDeals");
+  const btnGetHub = $("#btnGetHub");
+  const btnLogin = $("#btnLogin");
+  const homeBrand = $("#homeBrand");
 
-  function getStoredPhone(){
-    const v = (localStorage.getItem(STORAGE_PHONE_KEY) || "").trim();
-    if(v) return v;
-    // si rien stocké, on peut prefill par défaut (optionnel)
-    return (DEFAULT_PHONE || "").trim();
+  const ndimbalBtn = $("#digiy-help-btn");
+  const ndimbalBox = $("#digiy-ndimbal");
+  const ndimbalClose = $("#digiyCloseBtn");
+
+  const qrModal = $("#qrModal");
+  const qrClose = $("#qrClose");
+  const tarifBtn = $("#tarif-bubble-btn");
+  const espaceBtn = $("#espace-pro-btn");
+
+  // ====== 4) Helpers ======
+  function safeOpenTab(url){
+    window.open(url, "_blank", "noopener");
   }
 
-  function setStoredPhone(phone){
-    const p = (phone || "").trim();
-    if(p){
-      localStorage.setItem(STORAGE_PHONE_KEY, p);
-    }else{
-      localStorage.removeItem(STORAGE_PHONE_KEY);
-    }
-    renderPhone();
-    render();
+  function showOverlay(){
+    if(!overlay) return;
+    overlay.setAttribute("aria-hidden","false");
+    document.documentElement.style.overflow = "hidden";
+  }
+  function hideOverlay(){
+    if(!overlay) return;
+    overlay.setAttribute("aria-hidden","true");
+    document.documentElement.style.overflow = "";
+    if(frame) frame.src = "about:blank";
+    removeFallbackBanner();
   }
 
-  function appendPhoneIfSupported(url, mod){
-    const phone = getStoredPhone();
-    if(!phone) return url;
-    if(!mod.supportsPhoneParam) return url;
+  // Bandeau fallback si iframe bloqué / WordPress / sécurité
+  let fallbackTimer = null;
+  function ensureFallbackBanner(url){
+    // crée un petit bandeau au-dessus de l’iframe (dans .hubTop si présent)
+    const top = $(".hubTop");
+    if(!top) return;
+    if($("#digiyFallback")) return;
 
-    try{
-      const u = new URL(url);
-      if(!u.searchParams.get("phone")) u.searchParams.set("phone", phone);
-      return u.toString();
-    }catch(e){
-      // URL peut être relative/invalid -> fallback simple
-      const glue = url.includes("?") ? "&" : "?";
-      return url + glue + "phone=" + encodeURIComponent(phone);
-    }
+    const bar = document.createElement("div");
+    bar.id = "digiyFallback";
+    bar.style.cssText = `
+      margin:10px 0 0;
+      padding:10px 12px;
+      border:1px solid rgba(148,163,184,.35);
+      border-radius:12px;
+      background:rgba(2,6,23,.55);
+      color:#e5e7eb;
+      font-weight:650;
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+    `;
+    bar.innerHTML = `
+      <div style="line-height:1.25">
+        Si tu vois “refused to connect” ou un écran vide, c’est normal : certains modules bloquent l’iframe.
+      </div>
+      <button id="digiyOpenTab" type="button" style="
+        padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.22);
+        background:rgba(255,255,255,.10);color:#fff;font-weight:900;cursor:pointer
+      ">Ouvrir en onglet →</button>
+    `;
+    top.appendChild(bar);
+
+    $("#digiyOpenTab")?.addEventListener("click", () => safeOpenTab(url));
+  }
+  function removeFallbackBanner(){
+    const el = $("#digiyFallback");
+    if(el) el.remove();
   }
 
-  // ====== MODAL ======
-  function showModal({title, text, okText="OK", cancelText="Annuler", onOk=null, showCancel=true}){
-    const modal = $("modal");
-    const mTitle = $("modalTitle");
-    const mText = $("modalText");
-    const btnOk = $("modalOk");
-    const btnCancel = $("modalCancel");
+  function openInHub(url, mode="iframe"){
+    if(!url) return;
 
-    mTitle.textContent = title || "Info";
-    mText.textContent = text || "";
-
-    btnOk.textContent = okText;
-    btnCancel.textContent = cancelText;
-
-    btnCancel.style.display = showCancel ? "inline-flex" : "none";
-
-    function close(){
-      modal.classList.add("hidden");
-      modal.setAttribute("aria-hidden", "true");
-      btnOk.onclick = null;
-      btnCancel.onclick = null;
-      window.removeEventListener("keydown", onKey);
-    }
-    function onKey(e){
-      if(e.key === "Escape") close();
-    }
-
-    btnOk.onclick = () => {
-      try{ onOk && onOk(); } finally { close(); }
-    };
-    btnCancel.onclick = () => close();
-
-    modal.classList.remove("hidden");
-    modal.setAttribute("aria-hidden", "false");
-    window.addEventListener("keydown", onKey);
-  }
-
-  // ====== FILTERING ======
-  function matchesFilter(mod){
-    if(activeFilter === "all") return true;
-    return mod.kind === activeFilter;
-  }
-
-  function matchesSearch(mod){
-    if(!searchTerm) return true;
-    const hay = safeLower([mod.name, mod.desc, mod.key].join(" "));
-    return hay.includes(safeLower(searchTerm));
-  }
-
-  function getVisibleModules(){
-    return MODULES.filter(m => matchesFilter(m) && matchesSearch(m));
-  }
-
-  // ====== RENDER ======
-  function renderPhone(){
-    const phone = getStoredPhone();
-    $("phoneText").textContent = phone || "non mémorisé";
-  }
-
-  function renderStats(){
-    $("statTotal").textContent = MODULES.length.toString();
-    $("statPublic").textContent = MODULES.filter(m => m.kind === "public").length.toString();
-    $("statPro").textContent = MODULES.filter(m => m.kind === "pro").length.toString();
-  }
-
-  function mkBadge(text, cls){
-    const span = document.createElement("span");
-    span.className = "badge " + cls;
-    span.textContent = text;
-    return span;
-  }
-
-  function mkButton(label, onClick, {variant="primary", disabled=false}={}){
-    const b = document.createElement("button");
-    b.className = "btn " + (variant || "");
-    b.textContent = label;
-    if(disabled){
-      b.classList.add("disabled");
-      b.disabled = true;
-    }else{
-      b.addEventListener("click", onClick);
-    }
-    return b;
-  }
-
-  function openUrl(url){
-    window.open(url, "_blank", "noopener,noreferrer");
-  }
-
-  function render(){
-    const grid = $("modulesGrid");
-    grid.innerHTML = "";
-
-    const list = getVisibleModules();
-
-    if(list.length === 0){
-      const empty = document.createElement("div");
-      empty.className = "card";
-      empty.innerHTML = `
-        <div class="cardTop">
-          <div class="icon">😅</div>
-          <div>
-            <h3 class="cardTitle">Aucun module trouvé</h3>
-            <p class="cardDesc">Change le filtre ou tape un autre mot-clé.</p>
-          </div>
-        </div>
-      `;
-      grid.appendChild(empty);
+    // Mode onglet direct
+    if(mode === "tab"){
+      safeOpenTab(url);
       return;
     }
 
-    list.forEach(mod => {
-      const card = document.createElement("div");
-      card.className = "card";
+    // Tente overlay iframe
+    showOverlay();
+    if(frame) frame.src = url;
 
-      const top = document.createElement("div");
-      top.className = "cardTop";
+    // Fallback : on affiche toujours le bandeau (ça évite les “je vois rien”)
+    ensureFallbackBanner(url);
 
-      const icon = document.createElement("div");
-      icon.className = "icon";
-      icon.textContent = mod.icon || "∞";
-
-      const meta = document.createElement("div");
-      const h = document.createElement("h3");
-      h.className = "cardTitle";
-      h.textContent = mod.name;
-
-      const p = document.createElement("p");
-      p.className = "cardDesc";
-      p.textContent = mod.desc || "";
-
-      meta.appendChild(h);
-      meta.appendChild(p);
-
-      top.appendChild(icon);
-      top.appendChild(meta);
-
-      const badges = document.createElement("div");
-      badges.className = "badges";
-
-      badges.appendChild(mkBadge(mod.kind === "public" ? "PUBLIC" : "PRO", mod.kind === "public" ? "kind-public" : "kind-pro"));
-      badges.appendChild(mkBadge((mod.status || "soon").toUpperCase(), mod.status || "soon"));
-
-      // extra: si url manquante
-      if(!hasUrl(mod)){
-        badges.appendChild(mkBadge("À BRANCHER", "soon"));
-      }
-
-      const actions = document.createElement("div");
-      actions.className = "cardActions";
-
-      // bouton principal : Ouvrir
-      const canOpen = hasUrl(mod);
-
-      const openLabel = mod.kind === "public" ? "Ouvrir" : (mod.requiresAccess ? "Espace PRO" : "Ouvrir");
-      actions.appendChild(
-        mkButton(
-          canOpen ? `➡️ ${openLabel}` : "⛔ Lien manquant",
-          () => {
-            const url = appendPhoneIfSupported(mod.url, mod);
-            if(mod.kind === "pro" && mod.requiresAccess){
-              // si pro + accès requis, on laisse l'app gérer pin/guard
-              openUrl(url);
-            }else{
-              openUrl(url);
-            }
-          },
-          {variant:"primary", disabled: !canOpen}
-        )
-      );
-
-      // bouton secondaire : Détails / Action
-      actions.appendChild(
-        mkButton(
-          "ℹ️ Détails",
-          () => {
-            const phone = getStoredPhone();
-            const urlInfo = hasUrl(mod) ? appendPhoneIfSupported(mod.url, mod) : "(pas encore branché)";
-            showModal({
-              title: mod.name,
-              text:
-                `Type: ${mod.kind.toUpperCase()} · Statut: ${(mod.status||"soon").toUpperCase()}\n` +
-                `Téléphone: ${phone || "—"}\n` +
-                `Lien: ${urlInfo}`,
-              okText: "OK",
-              showCancel: false
-            });
-          },
-          {variant:"ghost", disabled:false}
-        )
-      );
-
-      card.appendChild(top);
-      card.appendChild(badges);
-      card.appendChild(actions);
-
-      grid.appendChild(card);
-    });
+    // Et on met un timer au cas où (si ça charge pas vite, l’utilisateur a la sortie)
+    clearTimeout(fallbackTimer);
+    fallbackTimer = setTimeout(() => {
+      // rien à faire de plus : le bouton est déjà là
+    }, 1200);
   }
 
-  // ====== EVENTS ======
-  function setActiveTab(filter){
-    activeFilter = filter;
-    document.querySelectorAll(".tab").forEach(t => {
-      t.classList.toggle("active", t.dataset.filter === filter);
-    });
-    render();
+  function moduleCardHTML(m){
+    const badge = m.badge?.text
+      ? `<div class="badge ${m.badge.cls || ""}">${m.badge.text}</div>`
+      : "";
+    return `
+      <div class="module" data-open="${m.key}">
+        <div class="module-top">
+          <div style="display:flex;gap:10px;align-items:center">
+            <div class="module-icon">${m.icon}</div>
+            <div>
+              <div class="module-name">${m.name}</div>
+              <div class="module-tag">${m.tag}</div>
+            </div>
+          </div>
+          ${badge}
+        </div>
+        <div class="module-body">${m.desc}</div>
+      </div>
+    `.trim();
   }
 
-  function bind(){
-    // CTAs
-    $("btnEnterHubPro").addEventListener("click", () => {
-      if(HUB_PRO_URL && HUB_PRO_URL.startsWith("http")){
-        openUrl(HUB_PRO_URL);
-      }else{
-        showModal({title:"HUB PRO", text:"Lien HUB_PRO_URL non défini.", showCancel:false});
-      }
-    });
+  // ====== 5) Render (si tu veux du 100% data-driven) ======
+  // Si tu gardes ton HTML en dur, ça marche aussi : on attache juste les events.
+  function renderIfNeeded(){
+    if(!grid) return;
+    // Si déjà rempli par ton HTML, on ne casse rien.
+    const already = $$(".module", grid).length;
+    if(already > 0) return;
 
-    $("btnAlreadyAccess").addEventListener("click", () => {
-      if(ACCESS_URL && ACCESS_URL.startsWith("http")){
-        openUrl(ACCESS_URL);
-      }else{
-        showModal({title:"Accès", text:"Lien ACCESS_URL non défini.", showCancel:false});
-      }
-    });
+    grid.innerHTML = MODULES.map(moduleCardHTML).join("\n");
+  }
 
-    $("btnActivate").addEventListener("click", () => {
-      if(ACTIVATE_URL && ACTIVATE_URL.startsWith("http")){
-        const phone = getStoredPhone();
-        const url = phone ? (ACTIVATE_URL + (ACTIVATE_URL.includes("?")?"&":"?") + "phone=" + encodeURIComponent(phone)) : ACTIVATE_URL;
-        openUrl(url);
-      }else{
-        showModal({
-          title:"Activation",
-          text:"Lien ACTIVATE_URL non défini (ou pas encore prêt).",
-          showCancel:false
-        });
-      }
-    });
+  function bindModuleClicks(){
+    if(!grid) return;
 
-    $("btnEditPhone").addEventListener("click", () => {
-      const current = getStoredPhone();
-      showModal({
-        title:"Modifier le numéro",
-        text:"OK = je te demande le numéro via une petite prompt navigateur.",
-        okText:"Continuer",
-        cancelText:"Annuler",
-        onOk: () => {
-          const v = prompt("Ton numéro (format international, ex: +22177xxxxxxx) :", current || "");
-          if(v === null) return;
-          setStoredPhone(v);
+    $$(".module", grid).forEach((card) => {
+      card.addEventListener("click", () => {
+        const key = card.dataset.open;
+        const m = MODULES.find(x => x.key === key);
+        const url = LINKS[key];
+
+        if(!url){
+          console.warn("❌ URL manquante pour:", key);
+          // petit fallback : si pas d’URL, pas de crash
+          alert("Module pas encore branché (URL manquante): " + key);
+          return;
         }
+
+        // si module existe dans data, on respecte son mode, sinon iframe par défaut
+        openInHub(url, m?.mode || "iframe");
       });
-    });
-
-    $("btnClearPhone").addEventListener("click", () => {
-      showModal({
-        title:"Effacer le numéro",
-        text:"Tu veux vraiment effacer le numéro mémorisé ?",
-        okText:"Oui, effacer",
-        cancelText:"Non",
-        onOk: () => setStoredPhone("")
-      });
-    });
-
-    // Tabs
-    document.querySelectorAll(".tab").forEach(t => {
-      t.addEventListener("click", () => setActiveTab(t.dataset.filter));
-    });
-
-    // Search
-    $("searchInput").addEventListener("input", (e) => {
-      Verdict: ;
-      searchTerm = e.target.value || "";
-      render();
-    });
-
-    $("btnReset").addEventListener("click", () => {
-      $("searchInput").value = "";
-      searchTerm = "";
-      setActiveTab("all");
-      render();
     });
   }
 
-  // ====== INIT ======
-  document.addEventListener("DOMContentLoaded", () => {
-    // phone init: si vide en storage, on peut inject default (optionnel)
-    const s = (localStorage.getItem(STORAGE_PHONE_KEY) || "").trim();
-    if(!s && DEFAULT_PHONE){
-      // ne force pas si tu veux pas: commente cette ligne
-      localStorage.setItem(STORAGE_PHONE_KEY, DEFAULT_PHONE.trim());
-    }
+  // ====== 6) Boutons vitrine / flottants ======
+  function bindVitrineUX(){
+    // CTA “Je veux mon HUB” → scroll vers modules
+    btnGetHub?.addEventListener("click", () => {
+      const section = $(".section");
+      section?.scrollIntoView({behavior:"smooth", block:"start"});
+    });
 
-    renderPhone();
-    renderStats();
-    bind();
-    render();
-  });
+    // CTA deals
+    btnDeals?.addEventListener("click", () => {
+      const url = LINKS.bonneAffaire;
+      if(url) openInHub(url, "iframe");
+    });
+
+    // Connexion = Espace PRO
+    btnLogin?.addEventListener("click", () => {
+      const url = LINKS.espacePro;
+      if(url) openInHub(url, "iframe");
+    });
+
+    // brand = retour top
+    homeBrand?.addEventListener("click", (e) => {
+      e.preventDefault();
+      window.scrollTo({top:0, behavior:"smooth"});
+    });
+
+    // overlay controls
+    backBtn?.addEventListener("click", hideOverlay);
+    closeBtn?.addEventListener("click", hideOverlay);
+    overlay?.addEventListener("click", (e) => {
+      // ferme si click en dehors de la card
+      const card = $(".hubCard");
+      if(card && !card.contains(e.target)) hideOverlay();
+    });
+
+    // NDIMBAL popup
+    ndimbalBtn?.addEventListener("click", () => {
+      if(!ndimbalBox) return;
+      ndimbalBox.setAttribute("aria-hidden","false");
+    });
+    ndimbalClose?.addEventListener("click", () => {
+      ndimbalBox?.setAttribute("aria-hidden","true");
+    });
+    ndimbalBox?.addEventListener("click", (e) => {
+      const box = $(".digiyBox");
+      if(box && !box.contains(e.target)) ndimbalBox.setAttribute("aria-hidden","true");
+    });
+
+    // QR modal: tu as un bouton NDIMBAL “qr” → on l’écoute
+    $$('[data-action="qr"]').forEach(btn => {
+      btn.addEventListener("click", () => {
+        ndimbalBox?.setAttribute("aria-hidden","true");
+        qrModal?.setAttribute("aria-hidden","false");
+      });
+    });
+    qrClose?.addEventListener("click", () => qrModal?.setAttribute("aria-hidden","true"));
+    qrModal?.addEventListener("click", (e) => {
+      const c = $(".qrContent");
+      if(c && !c.contains(e.target)) qrModal.setAttribute("aria-hidden","true");
+    });
+
+    // Tarifs flottant
+    tarifBtn?.addEventListener("click", () => {
+      // Mets ton lien tarif ici (tu as déjà un lien dans le footer)
+      safeOpenTab("https://beauville.github.io/DIGIY/");
+    });
+
+    // Espace PRO flottant
+    espaceBtn?.addEventListener("click", () => {
+      const url = LINKS.espacePro;
+      if(url) openInHub(url, "iframe");
+    });
+  }
+
+  // ====== GO ======
+  renderIfNeeded();
+  bindModuleClicks();
+  bindVitrineUX();
 
 })();
