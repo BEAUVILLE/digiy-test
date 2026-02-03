@@ -196,32 +196,40 @@
   }
 
   function cardHTML(m) {
-    const url = LINKS[m.key] || "#";
-    const typePill = pillHTML(m.type);
-    const statusPill = pillHTML(m.status);
+  const url = LINKS[m.key] || "#";
+  const isSoon = m.status === "soon";
+  const status = m.status; // live/beta/soon
+  const type = m.type;     // public/pro
 
-    return `
-      <article class="card" data-key="${m.key}" data-type="${m.type}" data-status="${m.status}" tabindex="0" role="button" aria-label="${m.name}">
-        <div class="cardTop">
-          <div class="cardIcon">${m.icon}</div>
-          <div class="cardTitleWrap">
-            <div class="cardTitle">${m.name}</div>
-            <div class="cardTag">${m.tag}</div>
-          </div>
+  const openLabel = isSoon ? "Bientôt" : "Ouvrir";
+  const openClass = isSoon ? "btn disabled" : "btn primary";
+
+  return `
+    <article class="card" data-key="${m.key}" data-type="${type}" data-status="${status}" tabindex="0" role="button" aria-label="${m.name}">
+      <div class="cardTop">
+        <div class="icon">${m.icon}</div>
+        <div>
+          <div class="cardTitle">${m.name}</div>
+          <div class="cardDesc">${m.tag}</div>
         </div>
+      </div>
 
-        <div class="cardDesc">${m.desc}</div>
+      <div class="cardDesc">${m.desc}</div>
 
-        <div class="cardMeta">
-          ${statusPill}
-          ${typePill}
-          <span class="cardGo">→ Ouvrir</span>
-        </div>
+      <div class="badges">
+        <span class="badge ${status}">${status.toUpperCase()}</span>
+        <span class="badge kind-${type}">${type.toUpperCase()}</span>
+      </div>
 
-        <div class="cardUrl" aria-hidden="true">${url}</div>
-      </article>
-    `.trim();
-  }
+      <div class="cardActions">
+        <button class="${openClass}" type="button" ${isSoon ? "disabled" : ""}>→ ${openLabel}</button>
+        <button class="btn ghost" type="button" data-action="copy">📌 Copier lien</button>
+      </div>
+
+      <div class="cardUrl" aria-hidden="true" style="display:none">${url}</div>
+    </article>
+  `.trim();
+}
 
   function match(m) {
     if (state.filter !== "all" && m.type !== state.filter) return false;
@@ -269,6 +277,27 @@
       });
     });
   }
+   // inside renderGrid(), after adding listeners:
+$$(".card", grid).forEach((card) => {
+  card.addEventListener("click", (e) => {
+    const btn = e.target?.closest?.("button");
+    if (btn && btn.dataset.action === "copy") {
+      e.preventDefault();
+      e.stopPropagation();
+      const key = card.getAttribute("data-key");
+      const m = MODULES.find(x => x.key === key);
+      const base = LINKS[key] || "";
+      const link = (m && m.phoneParam) ? withPhone(base, state.phone, "phone") : base;
+
+      if (!link) return;
+      navigator.clipboard?.writeText(link).catch(()=>{});
+      modal.info({ title:"Copié ✅", text:`Lien copié.<br><small>${link}</small>`, okText:"OK" });
+      return;
+    }
+    const key = card.getAttribute("data-key");
+    openModule(key);
+  });
+});
 
   // ==============
   // Open module
