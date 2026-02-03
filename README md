@@ -1,0 +1,23 @@
+# DIGIY HUB ∞ — Dépôt Test (F16)
+
+Bienvenue frérot 🦅  
+Ici c’est le **repo de test officiel** pour le rendu propre du **DIGIY HUB**.
+
+Objectif : arrêter les galères WordPress (scripts coupés, rendu cassé)  
+➡️ Ici on teste en conditions réelles : **HTML + CSS + JS propre, rapide, propre terrain.**
+
+---
+
+## ✅ Pourquoi ce dépôt existe
+
+WordPress n’affiche pas correctement le code brut :
+- il coupe le `<script>`
+- il modifie le HTML
+- il casse les styles
+
+👉 Donc on passe en mode **GitHub Pages = rendu parfait**.
+
+---
+
+## 🚀 Structure du projet
+
