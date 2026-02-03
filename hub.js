@@ -116,7 +116,7 @@ const MODULES = [
     name: "DIGIY EXPLORE",
     icon: "🧭",
     tag: "TOURISME & DÉCOUVERTE",
-    desc: "Découvrir l’Afrique : guides, visibilité, expériences authentiques.",
+    desc: "Découvrir l'Afrique : guides, visibilité, expériences authentiques.",
     kind: "public",
     status: "live",
     phoneParam: false
@@ -304,7 +304,7 @@ const MODULES = [
     phoneParam: true,
     directUrl: PRO_DEFAULT_URL
   },
-  // FRET : tu voulais PRO -> inscription, mais on garde les PIN directs (c’est plus logique)
+  // FRET : tu voulais PRO -> inscription, mais on garde les PIN directs (c'est plus logique)
   {
     key: "fretClientProPin",
     name: "FRET CLIENT PRO",
@@ -582,7 +582,7 @@ function cardHTML(m) {
    RENDER
    ========================= */
 function renderGrid() {
-  const grid = modulesGridEl; // ✅ local -> pas de "grid is not defined"
+  const grid = modulesGridEl;
   if (!grid) return;
 
   const filtered = getFilteredModules();
@@ -655,7 +655,7 @@ function askPhone() {
     title: "Numéro (optionnel)",
     text:
       `Entre ton numéro (ex: <b>+221771234567</b>)<br>
-       <small>Le HUB peut l’envoyer à certains modules.</small>
+       <small>Le HUB peut l'envoyer à certains modules.</small>
        <div style="margin-top:10px">
          <input id="phonePrompt"
            style="width:100%;padding:12px;border-radius:14px;border:1px solid rgba(148,163,184,.25);background:rgba(2,6,23,.18);color:#fff;outline:none"
@@ -706,7 +706,7 @@ function boot() {
   $("#btnEnterHubPro")?.addEventListener("click", () => hub.open(withPhone(PRO_DEFAULT_URL, state.phone, "phone")));
   $("#btnAlreadyAccess")?.addEventListener("click", () => modal.info({
     title: "Accès PRO",
-    text: "Choisis un module PRO : tu seras redirigé vers l’inscription / accès."
+    text: "Choisis un module PRO : tu seras redirigé vers l'inscription / accès."
   }));
   $("#btnActivate")?.addEventListener("click", () => hub.open(withPhone(PRO_DEFAULT_URL, state.phone, "phone")));
 
@@ -725,94 +725,100 @@ function boot() {
     if (searchInputEl) searchInputEl.value = "";
     setFilter("all");
   });
-// === BOUTONS FLOTTANTS ===
-// Tarifs DIGIY
-$("#tarif-bubble-btn")?.addEventListener("click", () => {
-  hub.open(LINKS.tarifs);
-});
 
-// ESPACE PRO
-$("#espace-pro-btn")?.addEventListener("click", () => {
-  hub.open(withPhone(PRO_DEFAULT_URL, state.phone, "phone"));
-});
-
-// NDIMBAL popup
-$("#digiy-help-btn")?.addEventListener("click", () => {
-  const ndimbal = $("#digiy-ndimbal");
-  if (ndimbal) {
-    ndimbal.classList.remove("hidden");
-    ndimbal.setAttribute("aria-hidden", "false");
-  }
-});
-
-// Fermer NDIMBAL
-$("#digiyCloseBtn")?.addEventListener("click", () => {
-  const ndimbal = $("#digiy-ndimbal");
-  if (ndimbal) {
-    ndimbal.classList.add("hidden");
-    ndimbal.setAttribute("aria-hidden", "true");
-  }
-});
-
-// Actions NDIMBAL
-const ndimbal = $("#digiy-ndimbal");
-if (ndimbal) {
-  ndimbal.addEventListener("click", (e) => {
-    const btn = e.target?.closest?.("button");
-    if (!btn || !btn.dataset.action) return;
-
-    const action = btn.dataset.action;
-    
-    // Fermer le popup
-    ndimbal.classList.add("hidden");
-    ndimbal.setAttribute("aria-hidden", "true");
-
-    // Actions
-    if (action === "sell") {
-      hub.open(withPhone(LINKS.jobs, state.phone, "phone"));
-    } else if (action === "job") {
-      hub.open(withPhone(LINKS.jobs, state.phone, "phone"));
-    } else if (action === "qr") {
-      const qrModal = $("#qrModal");
-      if (qrModal) {
-        qrModal.classList.remove("hidden");
-        qrModal.setAttribute("aria-hidden", "false");
-      }
-    }
-  });
-
-  // Fermer en cliquant sur le fond
-  ndimbal.addEventListener("click", (e) => {
-    if (e.target === ndimbal) {
-      ndimbal.classList.add("hidden");
-      ndimbal.setAttribute("aria-hidden", "true");
-    }
-  });
-}
-
-// QR Modal
-$("#qrClose")?.addEventListener("click", () => {
-  const qrModal = $("#qrModal");
-  if (qrModal) {
-    qrModal.classList.add("hidden");
-    qrModal.setAttribute("aria-hidden", "true");
-  }
-});
-
-// Fermer QR en cliquant sur le fond
-const qrModal = $("#qrModal");
-if (qrModal) {
-  qrModal.addEventListener("click", (e) => {
-    if (e.target === qrModal) {
-      qrModal.classList.add("hidden");
-      qrModal.setAttribute("aria-hidden", "true");
-    }
-  });
-}  // brand scroll top
+  // brand scroll top
   $("#homeBrand")?.addEventListener("click", (e) => {
     e.preventDefault();
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
+
+  // ===========================
+  // BOUTONS FLOTTANTS
+  // ===========================
+  
+  // 🏷️ Tarifs DIGIY
+  $("#tarif-bubble-btn")?.addEventListener("click", () => {
+    hub.open(LINKS.tarifs);
+  });
+
+  // 🧰 ESPACE PRO
+  $("#espace-pro-btn")?.addEventListener("click", () => {
+    hub.open(withPhone(PRO_DEFAULT_URL, state.phone, "phone"));
+  });
+
+  // ♾️ NDIMBAL - ouvrir popup
+  $("#digiy-help-btn")?.addEventListener("click", () => {
+    const ndimbal = $("#digiy-ndimbal");
+    if (ndimbal) {
+      ndimbal.classList.remove("hidden");
+      ndimbal.setAttribute("aria-hidden", "false");
+    }
+  });
+
+  // NDIMBAL - fermer
+  $("#digiyCloseBtn")?.addEventListener("click", () => {
+    const ndimbal = $("#digiy-ndimbal");
+    if (ndimbal) {
+      ndimbal.classList.add("hidden");
+      ndimbal.setAttribute("aria-hidden", "true");
+    }
+  });
+
+  // NDIMBAL - actions (délégation)
+  const ndimbalPopup = $("#digiy-ndimbal");
+  if (ndimbalPopup) {
+    ndimbalPopup.addEventListener("click", (e) => {
+      // Fermer si clic sur fond
+      if (e.target === ndimbalPopup) {
+        ndimbalPopup.classList.add("hidden");
+        ndimbalPopup.setAttribute("aria-hidden", "true");
+        return;
+      }
+
+      // Actions boutons
+      const btn = e.target?.closest?.("button");
+      if (!btn || !btn.dataset.action) return;
+
+      const action = btn.dataset.action;
+      
+      // Fermer popup
+      ndimbalPopup.classList.add("hidden");
+      ndimbalPopup.setAttribute("aria-hidden", "true");
+
+      // Router l'action
+      if (action === "sell") {
+        hub.open(withPhone(LINKS.jobs, state.phone, "phone"));
+      } else if (action === "job") {
+        hub.open(withPhone(LINKS.jobs, state.phone, "phone"));
+      } else if (action === "qr") {
+        const qrModal = $("#qrModal");
+        if (qrModal) {
+          qrModal.classList.remove("hidden");
+          qrModal.setAttribute("aria-hidden", "false");
+        }
+      }
+    });
+  }
+
+  // QR Modal - fermer
+  $("#qrClose")?.addEventListener("click", () => {
+    const qrModal = $("#qrModal");
+    if (qrModal) {
+      qrModal.classList.add("hidden");
+      qrModal.setAttribute("aria-hidden", "true");
+    }
+  });
+
+  // QR Modal - fermer sur fond
+  const qrModalPopup = $("#qrModal");
+  if (qrModalPopup) {
+    qrModalPopup.addEventListener("click", (e) => {
+      if (e.target === qrModalPopup) {
+        qrModalPopup.classList.add("hidden");
+        qrModalPopup.setAttribute("aria-hidden", "true");
+      }
+    });
+  }
 
   // apply tab active
   $$(".tab").forEach(btn => btn.classList.toggle("active", btn.dataset.filter === state.filter));
