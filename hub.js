@@ -1,268 +1,741 @@
-(() => {
-  "use strict";
+/* DIGIY HUB F16 — hub.js (PRO CLEAN: all PRO -> inscription) */
 
-  // =========================
-  // CONFIG — liens terrain
-  // =========================
-  const LINKS = {
-    inscription: "https://beauville.github.io/inscription-digiy/",
-    ndimbal:     "https://beauville.github.io/digiy-mdimbal-map/",
-    qr:          "https://beauville.github.io/digiy-qr-pro/"
-  };
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
-  const STORAGE = { phone: "DIGIY_HUB_PHONE" };
+const STORAGE_PHONE  = "DIGIY_HUB_PHONE";
+const STORAGE_FILTER = "DIGIY_HUB_FILTER";
+const STORAGE_SEARCH = "DIGIY_HUB_SEARCH";
 
-  // =========================
-  // Helpers safe
-  // =========================
-  const $ = (id) => document.getElementById(id);
+const state = {
+  phone: "",
+  filter: "all", // all | public | pro
+  q: ""
+};
 
-  function beacon(ok, msg){
-    const el = $("jsBeacon");
-    if(!el) return;
-    el.classList.remove("ok","ko");
-    el.classList.add(ok ? "ok" : "ko");
-    el.textContent = msg || (ok ? "🟢 JS OK" : "🔴 JS KO");
+/* =========================
+   LINKS (EDIT ICI)
+   ========================= */
+const LINKS = {
+  digiylyfe:    "https://digiylyfe.com",
+  tarifs:       "https://beauville.github.io/DIGIY/",
+  ndimbalMap:   "https://beauville.github.io/digiy-mdimbal-map/",
+
+  // Public
+  bonneAffaire: "https://beauville.github.io/digiy-bonne-affaire/",
+  driverClient: "https://beauville.github.io/digiy-driver-client/",
+  loc:          "https://beauville.github.io/digiy-loc/",
+  resto:        "https://beauville.github.io/digiy-resto/",
+  build:        "https://beauville.github.io/digiy-build/",
+  explore:      "https://beauville.github.io/digiy-explore/",
+  market:       "https://beauville.github.io/digiy-market/",
+  jobs:         "https://beauville.github.io/digiy-jobs/",
+  pay:          "https://beauville.github.io/digiy-pay/",
+  resa:         "https://beauville.github.io/digiy-resa/",
+  resaTable:    "https://beauville.github.io/digiy-resa-table/",
+  notable:      "https://beauville.github.io/digiy-notable/",
+
+  // PRO (BASE)
+  inscriptionPro: "https://beauville.github.io/inscription-digiy/",
+
+  // FRET PIN direct (PRO)
+  fretClientProPin:     "https://beauville.github.io/fret-client-pro/pin.html",
+  fretChauffeurProPin:  "https://beauville.github.io/fret-chauffeur-pro/pin.html"
+};
+
+// ✅ règle demandée : TOUS les PRO ouvrent inscription
+const PRO_DEFAULT_URL = LINKS.inscriptionPro;
+
+/* =========================
+   MODULES (DATA)
+   ========================= */
+const MODULES = [
+  /* -------- PUBLIC -------- */
+  {
+    key: "bonneAffaire",
+    name: "DIGIY BONNE AFFAIRE",
+    icon: "💥",
+    tag: "BONS PLANS • PROMOS",
+    desc: "Les meilleures opportunités locales : promos, deals, bonnes affaires terrain.",
+    kind: "public",
+    status: "live",
+    phoneParam: false
+  },
+  {
+    key: "ndimbalMap",
+    name: "DIGIY NDIMBAL MAP",
+    icon: "🗺️",
+    tag: "CARTE COMMUNAUTÉ",
+    desc: "Annuaire géolocalisé : pros, quartiers, filtres. Sénégal terrain.",
+    kind: "public",
+    status: "live",
+    phoneParam: false
+  },
+  {
+    key: "driverClient",
+    name: "DIGIY DRIVER CLIENT",
+    icon: "🚕",
+    tag: "COMMANDER UNE COURSE",
+    desc: "Commande ta course. Paiement direct. 0% commission.",
+    kind: "public",
+    status: "live",
+    phoneParam: true
+  },
+  {
+    key: "loc",
+    name: "DIGIY LOC",
+    icon: "🏠",
+    tag: "LOCATION SANS OTA",
+    desc: "Alternative Booking/Airbnb, direct propriétaire, sans commission.",
+    kind: "public",
+    status: "live",
+    phoneParam: true
+  },
+  {
+    key: "resto",
+    name: "DIGIY RESTO",
+    icon: "🍽️",
+    tag: "VITRINE RESTAURANT",
+    desc: "Menus, photos, horaires, localisation. Réservation directe.",
+    kind: "public",
+    status: "live",
+    phoneParam: true
+  },
+  {
+    key: "build",
+    name: "DIGIY BUILD",
+    icon: "🏗️",
+    tag: "ARTISANS & BTP",
+    desc: "Devis, galerie, contact. Humain. Direct. Sans commission.",
+    kind: "public",
+    status: "live",
+    phoneParam: true
+  },
+  {
+    key: "explore",
+    name: "DIGIY EXPLORE",
+    icon: "🧭",
+    tag: "TOURISME & DÉCOUVERTE",
+    desc: "Découvrir l’Afrique : guides, visibilité, expériences authentiques.",
+    kind: "public",
+    status: "live",
+    phoneParam: false
+  },
+  {
+    key: "market",
+    name: "DIGIY MARKET",
+    icon: "🛍️",
+    tag: "MARKETPLACE LOCALE",
+    desc: "Acheter/vendre local. Annonces propres. Sans commission.",
+    kind: "public",
+    status: "beta",
+    phoneParam: true
+  },
+  {
+    key: "jobs",
+    name: "DIGIY JOBS",
+    icon: "💼",
+    tag: "EMPLOI & TALENTS",
+    desc: "Offres, candidatures, profils. Pont talents–employeurs.",
+    kind: "public",
+    status: "beta",
+    phoneParam: true
+  },
+  {
+    key: "pay",
+    name: "DIGIY PAY",
+    icon: "💳",
+    tag: "WAVE / OM / CB",
+    desc: "Wallet unifié, activation modules (en cours).",
+    kind: "public",
+    status: "soon",
+    phoneParam: true
+  },
+  {
+    key: "resa",
+    name: "DIGIY RESA",
+    icon: "📅",
+    tag: "RÉSERVATIONS",
+    desc: "Planning, confirmations, gestion des réservations.",
+    kind: "public",
+    status: "beta",
+    phoneParam: true
+  },
+  {
+    key: "resaTable",
+    name: "DIGIY RESA TABLE",
+    icon: "🪑",
+    tag: "RÉSA RESTAURANT",
+    desc: "Réservation tables, plan de salle, disponibilités.",
+    kind: "public",
+    status: "beta",
+    phoneParam: true
+  },
+  {
+    key: "notable",
+    name: "DIGIY NOTABLE",
+    icon: "📓",
+    tag: "NOTES & DOCS",
+    desc: "Notes terrain, procédures, fiches.",
+    kind: "public",
+    status: "soon",
+    phoneParam: false
+  },
+
+  /* -------- PRO (TOUS -> INSCRIPTION) -------- */
+  {
+    key: "espacePro",
+    name: "ESPACE PRO",
+    icon: "🧰",
+    tag: "INSCRIPTION • ACCÈS",
+    desc: "Portail PRO : création / accès (slug + PIN).",
+    kind: "pro",
+    status: "live",
+    phoneParam: true,
+    directUrl: PRO_DEFAULT_URL
+  },
+  {
+    key: "driverPro",
+    name: "DIGIY DRIVER PRO",
+    icon: "🚗",
+    tag: "CHAUFFEUR PRO",
+    desc: "Cockpit chauffeur, courses, encaissements.",
+    kind: "pro",
+    status: "live",
+    phoneParam: true,
+    directUrl: PRO_DEFAULT_URL
+  },
+  {
+    key: "locPro",
+    name: "DIGIY LOC PRO",
+    icon: "🏡",
+    tag: "PROPRIÉTAIRES",
+    desc: "Cockpit propriétaire, planning, réservations.",
+    kind: "pro",
+    status: "live",
+    phoneParam: true,
+    directUrl: PRO_DEFAULT_URL
+  },
+  {
+    key: "buildPro",
+    name: "DIGIY BUILD PRO",
+    icon: "🧱",
+    tag: "ARTISANS • DEVIS",
+    desc: "Devis, chantiers, pipeline.",
+    kind: "pro",
+    status: "beta",
+    phoneParam: true,
+    directUrl: PRO_DEFAULT_URL
+  },
+  {
+    key: "caissePro",
+    name: "DIGIY CAISSE PRO",
+    icon: "🧾",
+    tag: "POS • ENCAISSEMENT",
+    desc: "Caisse pro, encaissement terrain.",
+    kind: "pro",
+    status: "beta",
+    phoneParam: true,
+    directUrl: PRO_DEFAULT_URL
+  },
+  {
+    key: "marketPro",
+    name: "DIGIY MARKET PRO",
+    icon: "📦",
+    tag: "BOUTIQUE • CATALOGUE",
+    desc: "Gestion produits, commandes, stock.",
+    kind: "pro",
+    status: "soon",
+    phoneParam: true,
+    directUrl: PRO_DEFAULT_URL
+  },
+  {
+    key: "jobsPro",
+    name: "DIGIY JOBS PRO",
+    icon: "🧑🏾‍💼",
+    tag: "EMPLOYEURS",
+    desc: "Gestion offres, dossiers, suivi accompagnement.",
+    kind: "pro",
+    status: "soon",
+    phoneParam: true,
+    directUrl: PRO_DEFAULT_URL
+  },
+  {
+    key: "restoPro",
+    name: "DIGIY RESTO PRO",
+    icon: "👨🏾‍🍳",
+    tag: "MENU • RÉSA • CAISSE",
+    desc: "Gestion resto côté PRO.",
+    kind: "pro",
+    status: "soon",
+    phoneParam: true,
+    directUrl: PRO_DEFAULT_URL
+  },
+  {
+    key: "explorePro",
+    name: "DIGIY EXPLORE PRO",
+    icon: "🧭",
+    tag: "SPOTS • GUIDES",
+    desc: "Gestion spots et expériences côté PRO.",
+    kind: "pro",
+    status: "soon",
+    phoneParam: true,
+    directUrl: PRO_DEFAULT_URL
+  },
+  {
+    key: "payPro",
+    name: "DIGIY PAY PRO",
+    icon: "💸",
+    tag: "WAVE • OM • QR",
+    desc: "Encaissement + activation modules côté PRO.",
+    kind: "pro",
+    status: "soon",
+    phoneParam: true,
+    directUrl: PRO_DEFAULT_URL
+  },
+  {
+    key: "resaPro",
+    name: "DIGIY RESA PRO",
+    icon: "📆",
+    tag: "PLANNING • CONFIRM",
+    desc: "Gestion réservations côté PRO.",
+    kind: "pro",
+    status: "soon",
+    phoneParam: true,
+    directUrl: PRO_DEFAULT_URL
+  },
+  // FRET : tu voulais PRO -> inscription, mais on garde les PIN directs (c’est plus logique)
+  {
+    key: "fretClientProPin",
+    name: "FRET CLIENT PRO",
+    icon: "📦",
+    tag: "PIN DIRECT",
+    desc: "Portail FRET client — accès direct via PIN.",
+    kind: "pro",
+    status: "live",
+    phoneParam: false,
+    directUrl: LINKS.fretClientProPin
+  },
+  {
+    key: "fretChauffeurProPin",
+    name: "FRET CHAUFFEUR PRO",
+    icon: "🚚",
+    tag: "PIN DIRECT",
+    desc: "Portail FRET chauffeur — accès direct via PIN.",
+    kind: "pro",
+    status: "live",
+    phoneParam: false,
+    directUrl: LINKS.fretChauffeurProPin
   }
+];
 
-  function on(el, evt, fn){
-    if(!el) return;
-    el.addEventListener(evt, fn);
+/* =========================
+   HELPERS
+   ========================= */
+function normPhone(p) {
+  if (!p) return "";
+  let s = String(p).trim();
+  s = s.replace(/[^\d+]/g, "");
+  if (s && !s.startsWith("+")) {
+    if (s.startsWith("221")) s = "+" + s;
   }
+  return s;
+}
 
-  function normPhone(v){
-    return String(v || "").trim().replace(/\s+/g, "");
+function withPhone(url, phone, param = "phone") {
+  if (!url) return "";
+  if (!phone) return url;
+  try {
+    const u = new URL(url);
+    u.searchParams.set(param, phone);
+    return u.toString();
+  } catch (_) {
+    const sep = url.includes("?") ? "&" : "?";
+    return url + sep + encodeURIComponent(param) + "=" + encodeURIComponent(phone);
   }
+}
 
-  function getPhone(){
-    const v = normPhone($("phoneInput")?.value);
-    return v || (localStorage.getItem(STORAGE.phone) || "");
-  }
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (m) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;",
+    '"': "&quot;", "'": "&#039;"
+  }[m]));
+}
 
-  function savePhone(){
-    const p = getPhone();
-    const hint = $("phoneHint");
-    if(!p){
-      if(hint) hint.textContent = "⚠️ Mets un numéro (ex: +221778765785).";
-      return;
-    }
-    localStorage.setItem(STORAGE.phone, p);
-    if(hint) hint.textContent = `✅ Numéro mémorisé : ${p}`;
-  }
+/* =========================
+   MODAL
+   ========================= */
+const modal = {
+  root: null,
+  titleEl: null,
+  textEl: null,
+  okBtn: null,
+  cancelBtn: null,
+  _onOk: null,
+  _onCancel: null,
 
-  function loadPhone(){
-    const p = localStorage.getItem(STORAGE.phone) || "";
-    const input = $("phoneInput");
-    const hint = $("phoneHint");
-    if(input && p) input.value = p;
-    if(hint) hint.textContent = p ? `✅ Numéro mémorisé : ${p}` : "Astuce : ton numéro sert à retrouver ton HUB plus vite.";
-  }
+  init() {
+    this.root = $("#modal");
+    this.titleEl = $("#modalTitle");
+    this.textEl = $("#modalText");
+    this.okBtn = $("#modalOk");
+    this.cancelBtn = $("#modalCancel");
+    if (!this.root) return;
 
-  // =========================
-  // Navigation (NO-IFRAME)
-  // =========================
-  function go(url){
-    if(!url || url === "#") return;
-    window.location.href = url;
-  }
-
-  function goPro(){
-    const p = getPhone();
-    const url = p ? `${LINKS.inscription}?phone=${encodeURIComponent(p)}` : LINKS.inscription;
-    go(url);
-  }
-
-  function goNdimbal(){ go(LINKS.ndimbal); }
-  function goQR(){ go(LINKS.qr); }
-
-  // =========================
-  // Overlay
-  // =========================
-  function openOverlay(){
-    const overlay = $("overlay");
-    if(!overlay) return;
-    overlay.classList.add("open");
-    overlay.setAttribute("aria-hidden", "false");
-  }
-
-  function closeOverlay(){
-    const overlay = $("overlay");
-    if(!overlay) return;
-    overlay.classList.remove("open");
-    overlay.setAttribute("aria-hidden", "true");
-  }
-
-  // =========================
-  // Modules — data driven
-  // =========================
-  let MODULES = [];
-
-  function escapeHtml(s){
-    return String(s || "")
-      .replaceAll("&","&amp;")
-      .replaceAll("<","&lt;")
-      .replaceAll(">","&gt;")
-      .replaceAll('"',"&quot;")
-      .replaceAll("'","&#039;");
-  }
-
-  function matches(mod, q){
-    if(!q) return true;
-    const hay = `${mod.name||""} ${mod.desc||""} ${(mod.tags||[]).join(" ")} ${mod.key||""}`.toLowerCase();
-    return hay.includes(q);
-  }
-
-  function renderModules(){
-    const grid = $("modulesGrid");
-    if(!grid) return;
-
-    const q = ($("searchInput")?.value || "").trim().toLowerCase();
-    const list = MODULES.filter(m => matches(m, q));
-
-    if(!list.length){
-      grid.innerHTML = `
-        <article class="cardMod">
-          <h3 class="modName">Aucun résultat</h3>
-          <p class="modDesc">Essaie un autre mot-clé (ex: loc, driver, market…).</p>
-          <div class="modActions">
-            <button class="aBtn primary" type="button" data-act="pro">🦅 Accès PRO</button>
-            <button class="aBtn" type="button" data-act="reload">↻ Recharger</button>
-          </div>
-        </article>
-      `;
-    } else {
-      grid.innerHTML = list.map(mod => {
-        const icon = escapeHtml(mod.icon || "⚡");
-        const name = escapeHtml(mod.name || "Module");
-        const desc = escapeHtml(mod.desc || "");
-        const access = (mod.access || "pro").toLowerCase(); // pro|public|mixed
-        const badge = access === "public"
-          ? `<span class="badge public">PUBLIC</span>`
-          : `<span class="badge pro">PRO</span>`;
-
-        const tags = Array.isArray(mod.tags) ? mod.tags.slice(0,3) : [];
-        const tagBadges = tags.map(t => `<span class="badge">${escapeHtml(t)}</span>`).join("");
-
-        // ✅ règle: PRO -> inscription
-        const primary = access === "public"
-          ? `<button class="aBtn primary" type="button" data-act="open" data-url="${escapeHtml(mod.url||"#")}">👀 Ouvrir</button>`
-          : `<button class="aBtn primary" type="button" data-act="pro">🦅 Accès PRO</button>`;
-
-        return `
-          <article class="cardMod">
-            <div class="modTop">
-              <div class="modIcon">${icon}</div>
-              <div class="modText">
-                <h3 class="modName">${name}</h3>
-                <p class="modDesc">${desc}</p>
-              </div>
-            </div>
-
-            <div class="modBadges">
-              ${badge}
-              ${tagBadges}
-            </div>
-
-            <div class="modActions">
-              ${primary}
-              <button class="aBtn" type="button" data-act="overlay">ℹ️ Détails</button>
-            </div>
-          </article>
-        `;
-      }).join("");
-    }
-
-    // ✅ delegate actions
-    grid.querySelectorAll("button[data-act]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const act = btn.getAttribute("data-act");
-        if(act === "pro") return goPro();
-        if(act === "overlay") return openOverlay();
-        if(act === "reload") return fetchModules();
-        if(act === "open"){
-          const url = btn.getAttribute("data-url") || "#";
-          if(!url.startsWith("http")) return goPro(); // fallback clean
-          return go(url);
-        }
-      });
+    this.okBtn?.addEventListener("click", () => {
+      this.hide();
+      if (typeof this._onOk === "function") this._onOk();
     });
+    this.cancelBtn?.addEventListener("click", () => {
+      this.hide();
+      if (typeof this._onCancel === "function") this._onCancel();
+    });
+
+    this.root.addEventListener("click", (e) => {
+      if (e.target === this.root) this.hide();
+    });
+
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !this.root.classList.contains("hidden")) this.hide();
+    });
+  },
+
+  show({ title, text, okText = "OK", cancelText = "Annuler", onOk = null, onCancel = null, hideCancel = false }) {
+    if (!this.root) return;
+    this.titleEl.textContent = title || "Info";
+    this.textEl.innerHTML = text || "";
+    this.okBtn.textContent = okText;
+    this.cancelBtn.textContent = cancelText;
+    this._onOk = onOk;
+    this._onCancel = onCancel;
+    this.cancelBtn.style.display = hideCancel ? "none" : "";
+    this.root.classList.remove("hidden");
+    this.root.setAttribute("aria-hidden", "false");
+  },
+
+  info({ title, text, okText = "OK" }) {
+    this.show({ title, text, okText, hideCancel: true });
+  },
+
+  hide() {
+    if (!this.root) return;
+    this.root.classList.add("hidden");
+    this.root.setAttribute("aria-hidden", "true");
+    this._onOk = null;
+    this._onCancel = null;
+  }
+};
+
+/* =========================
+   HUB OVERLAY (IFRAME)
+   ========================= */
+const hub = {
+  overlay: null,
+  frame: null,
+  backBtn: null,
+  closeBtn: null,
+
+  init() {
+    this.overlay = $("#hubOverlay");
+    this.frame = $("#hubFrame");
+    this.backBtn = $("#hubBackBtn");
+    this.closeBtn = $("#hubCloseBtn");
+    if (!this.overlay || !this.frame) return;
+
+    const close = () => this.close();
+    this.closeBtn?.addEventListener("click", close);
+    this.backBtn?.addEventListener("click", close);
+
+    this.overlay.addEventListener("click", (e) => {
+      if (e.target === this.overlay) close();
+    });
+
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !this.overlay.classList.contains("hidden")) close();
+    });
+  },
+
+  open(url) {
+    if (!url) return;
+    this.frame.src = url;
+    this.overlay.classList.remove("hidden");
+    this.overlay.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+  },
+
+  close() {
+    if (!this.overlay) return;
+    this.overlay.classList.add("hidden");
+    this.overlay.setAttribute("aria-hidden", "true");
+    this.frame.src = "about:blank";
+    document.body.style.overflow = "";
+  }
+};
+
+/* =========================
+   UI REFS
+   ========================= */
+let modulesGridEl, phoneTextEl, searchInputEl;
+let statTotalEl, statPublicEl, statProEl;
+
+/* =========================
+   FILTERS
+   ========================= */
+function setFilter(f) {
+  state.filter = f;
+  localStorage.setItem(STORAGE_FILTER, f);
+  $$(".tab").forEach(btn => btn.classList.toggle("active", btn.dataset.filter === f));
+  render();
+}
+
+function setSearch(q) {
+  state.q = q;
+  localStorage.setItem(STORAGE_SEARCH, q);
+  render();
+}
+
+function getFilteredModules() {
+  const q = (state.q || "").trim().toLowerCase();
+
+  return MODULES.filter(m => {
+    if (state.filter === "public" && m.kind !== "public") return false;
+    if (state.filter === "pro" && m.kind !== "pro") return false;
+    if (!q) return true;
+
+    const hay = [m.key, m.name, m.tag, m.desc, m.kind, m.status].join(" ").toLowerCase();
+    return hay.includes(q);
+  });
+}
+
+function updateStats(filtered) {
+  const total = filtered.length;
+  const pub = filtered.filter(m => m.kind === "public").length;
+  const pro = filtered.filter(m => m.kind === "pro").length;
+
+  if (statTotalEl) statTotalEl.textContent = String(total);
+  if (statPublicEl) statPublicEl.textContent = String(pub);
+  if (statProEl) statProEl.textContent = String(pro);
+}
+
+/* =========================
+   CARDS
+   ========================= */
+function badgeHTML(kind, status) {
+  const kindBadge = `<span class="badge kind-${kind}">${kind === "pro" ? "PRO" : "PUBLIC"}</span>`;
+  const st = status || "soon";
+  const stBadge = `<span class="badge ${st}">${st.toUpperCase()}</span>`;
+  return kindBadge + stBadge;
+}
+
+// ✅ règle PRO: si module PRO => inscription (sauf fret pin direct)
+function getModuleUrl(m) {
+  // directUrl priorité (ex: fret pin)
+  let base = m.directUrl || LINKS[m.key] || "";
+
+  if (m.kind === "pro") {
+    // tout PRO sur inscription, sauf si directUrl explicit (fret pin)
+    base = m.directUrl || PRO_DEFAULT_URL;
   }
 
-  async function fetchModules(){
-    const reloadBtn = $("btnReloadModules");
-    try{
-      if(reloadBtn){ reloadBtn.disabled = true; reloadBtn.textContent = "…"; }
+  if (!base) return "";
 
-      const res = await fetch("./modules.json?v=" + Date.now(), { cache: "no-store" });
-      if(!res.ok) throw new Error("modules.json not found");
-      const data = await res.json();
+  if (m.phoneParam && state.phone) {
+    base = withPhone(base, state.phone, "phone");
+  }
+  return base;
+}
 
-      MODULES = Array.isArray(data) ? data : (Array.isArray(data.modules) ? data.modules : []);
-      if(!MODULES.length) throw new Error("modules empty");
+function cardHTML(m) {
+  const url = getModuleUrl(m);
+  const disabled = !url;
 
-      renderModules();
-    }catch(e){
-      console.warn("modules fallback", e);
-      // fallback intégré
-      MODULES = [
-        { key:"ndimbal", name:"NDIMBAL MAP", icon:"🧭", desc:"Carte terrain multi-QG.", access:"public", url:LINKS.ndimbal, tags:["terrain","map"] },
-        { key:"loc", name:"DIGIY LOC PRO", icon:"🏠", desc:"Locations · hébergements · planning.", access:"pro", tags:["pro","planning"] },
-        { key:"driver", name:"DIGIY DRIVER PRO", icon:"🚗", desc:"Chauffeur · courses · cockpit.", access:"pro", tags:["pro","transport"] },
-        { key:"build", name:"DIGIY BUILD PRO", icon:"🧱", desc:"Artisans · devis · chantiers.", access:"pro", tags:["pro","devis"] },
-        { key:"market", name:"DIGIY MARKET", icon:"🛒", desc:"Marketplace · deals · terrain.", access:"pro", tags:["pro","market"] },
-        { key:"jobs", name:"DIGIY JOBS", icon:"🧰", desc:"Emploi · dossiers · accompagnement.", access:"pro", tags:["pro","jobs"] },
-        { key:"qr", name:"DIGIY QR PRO", icon:"📷", desc:"QR pour pros · accès rapide.", access:"public", url:LINKS.qr, tags:["qr"] }
-      ];
-      renderModules();
-    }finally{
-      if(reloadBtn){ reloadBtn.disabled = false; reloadBtn.textContent = "↻"; }
-    }
+  return `
+    <div class="card" tabindex="0" role="button" aria-label="${escapeHtml(m.name)}" data-key="${escapeHtml(m.key)}">
+      <div class="cardTop">
+        <div class="icon">${escapeHtml(m.icon || "∞")}</div>
+        <div style="flex:1;min-width:0">
+          <div class="cardTitle">${escapeHtml(m.name)}</div>
+          <div class="cardDesc">${escapeHtml(m.desc || "")}</div>
+
+          <div class="badges">
+            ${badgeHTML(m.kind, m.status)}
+            ${m.tag ? `<span class="badge">${escapeHtml(m.tag)}</span>` : ""}
+          </div>
+
+          ${url ? `<div class="smallLink">${escapeHtml(url)}</div>` : ""}
+        </div>
+      </div>
+
+      <div class="cardActions">
+        <button class="btn ${disabled ? "disabled" : "primary"}" data-action="open" ${disabled ? "disabled" : ""} type="button">
+          Ouvrir →
+        </button>
+        <button class="btn ${disabled ? "disabled" : ""}" data-action="copy" ${disabled ? "disabled" : ""} type="button">
+          Copier lien
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+/* =========================
+   RENDER
+   ========================= */
+function renderGrid() {
+  const grid = modulesGridEl; // ✅ local -> pas de "grid is not defined"
+  if (!grid) return;
+
+  const filtered = getFilteredModules();
+  grid.innerHTML = filtered.length
+    ? filtered.map(cardHTML).join("")
+    : `<div class="empty">Aucun module ne correspond à ta recherche.</div>`;
+
+  $$(".card", grid).forEach(card => {
+    card.addEventListener("click", (e) => {
+      const btn = e.target?.closest?.("button");
+      const key = card.getAttribute("data-key");
+      const m = MODULES.find(x => x.key === key);
+      if (!m) return;
+
+      if (btn && btn.dataset.action === "copy") {
+        e.preventDefault();
+        e.stopPropagation();
+        const link = getModuleUrl(m);
+        if (!link) return;
+        navigator.clipboard?.writeText(link).catch(() => {});
+        modal.info({ title: "Copié ✅", text: `Lien copié.<br><small>${escapeHtml(link)}</small>` });
+        return;
+      }
+
+      openModule(key);
+    });
+
+    card.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        openModule(card.getAttribute("data-key"));
+      }
+    });
+  });
+
+  updateStats(filtered);
+}
+
+function renderPhone() {
+  if (!phoneTextEl) return;
+  phoneTextEl.textContent = state.phone ? state.phone : "non mémorisé";
+}
+
+function render() {
+  renderPhone();
+  renderGrid();
+}
+
+/* =========================
+   ACTIONS
+   ========================= */
+function openModule(key) {
+  const m = MODULES.find(x => x.key === key);
+  if (!m) return;
+
+  const url = getModuleUrl(m);
+  if (!url) {
+    modal.info({
+      title: "Module non disponible",
+      text: "Lien non défini."
+    });
+    return;
   }
 
-  // =========================
-  // Bind UI
-  // =========================
-  function bindUI(){
-    on($("btnOpenOverlay"), "click", openOverlay);
-    on($("btnCloseOverlay"), "click", closeOverlay);
-    on($("btnAlreadyAccess"), "click", goPro);
+  hub.open(url);
+}
 
-    const overlay = $("overlay");
-    if(overlay){
-      on(overlay, "click", (e) => { if(e.target === overlay) closeOverlay(); });
-    }
-    on(window, "keydown", (e) => { if(e.key === "Escape") closeOverlay(); });
-
-    on($("btnGoPro"), "click", goPro);
-    on($("btnGoPublic"), "click", closeOverlay);
-    on($("btnOpenNdimbal"), "click", goNdimbal);
-    on($("btnOpenQR"), "click", goQR);
-
-    on($("floatNdimbal"), "click", goNdimbal);
-    on($("floatQR"), "click", goQR);
-    on($("floatPro"), "click", goPro);
-
-    on($("btnRemember"), "click", savePhone);
-    on($("phoneInput"), "keydown", (e) => { if(e.key === "Enter") savePhone(); });
-
-    on($("searchInput"), "input", renderModules);
-    on($("btnReloadModules"), "click", fetchModules);
-  }
-
-  function boot(){
-    // ✅ si on arrive ici, JS tourne => beacon OK
-    beacon(true, "🟢 JS OK");
-    bindUI();
-    loadPhone();
-    fetchModules();
-  }
-
-  document.addEventListener("DOMContentLoaded", () => {
-    try{ boot(); }
-    catch(e){
-      console.error("BOOT CRASH", e);
-      beacon(false, "🔴 JS KO (crash)");
+function askPhone() {
+  modal.show({
+    title: "Numéro (optionnel)",
+    text:
+      `Entre ton numéro (ex: <b>+221771234567</b>)<br>
+       <small>Le HUB peut l’envoyer à certains modules.</small>
+       <div style="margin-top:10px">
+         <input id="phonePrompt"
+           style="width:100%;padding:12px;border-radius:14px;border:1px solid rgba(148,163,184,.25);background:rgba(2,6,23,.18);color:#fff;outline:none"
+           placeholder="+221..." value="${escapeHtml(state.phone)}"/>
+       </div>`,
+    okText: "Enregistrer",
+    cancelText: "Annuler",
+    onOk: () => {
+      const inp = $("#phonePrompt");
+      const val = normPhone(inp?.value || "");
+      state.phone = val;
+      localStorage.setItem(STORAGE_PHONE, val);
+      render();
     }
   });
 
-})();
+  setTimeout(() => $("#phonePrompt")?.focus(), 50);
+}
+
+/* =========================
+   INIT
+   ========================= */
+function boot() {
+  modulesGridEl = $("#modulesGrid");
+  phoneTextEl   = $("#phoneText");
+  searchInputEl = $("#searchInput");
+  statTotalEl   = $("#statTotal");
+  statPublicEl  = $("#statPublic");
+  statProEl     = $("#statPro");
+
+  modal.init();
+  hub.init();
+
+  // state load
+  state.phone  = normPhone(localStorage.getItem(STORAGE_PHONE) || "");
+  state.filter = localStorage.getItem(STORAGE_FILTER) || "all";
+  state.q      = localStorage.getItem(STORAGE_SEARCH) || "";
+
+  // phone buttons
+  $("#btnEditPhone")?.addEventListener("click", askPhone);
+  $("#btnClearPhone")?.addEventListener("click", () => {
+    state.phone = "";
+    localStorage.removeItem(STORAGE_PHONE);
+    render();
+  });
+
+  // hero CTAs
+  $("#btnEnterHubPro")?.addEventListener("click", () => hub.open(withPhone(PRO_DEFAULT_URL, state.phone, "phone")));
+  $("#btnAlreadyAccess")?.addEventListener("click", () => modal.info({
+    title: "Accès PRO",
+    text: "Choisis un module PRO : tu seras redirigé vers l’inscription / accès."
+  }));
+  $("#btnActivate")?.addEventListener("click", () => hub.open(withPhone(PRO_DEFAULT_URL, state.phone, "phone")));
+
+  // tabs
+  $$(".tab").forEach(btn => btn.addEventListener("click", () => setFilter(btn.dataset.filter)));
+
+  // search
+  if (searchInputEl) {
+    searchInputEl.value = state.q || "";
+    searchInputEl.addEventListener("input", () => setSearch(searchInputEl.value));
+  }
+
+  $("#btnReset")?.addEventListener("click", () => {
+    state.q = "";
+    localStorage.removeItem(STORAGE_SEARCH);
+    if (searchInputEl) searchInputEl.value = "";
+    setFilter("all");
+  });
+
+  // brand scroll top
+  $("#homeBrand")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  // apply tab active
+  $$(".tab").forEach(btn => btn.classList.toggle("active", btn.dataset.filter === state.filter));
+
+  render();
+}
+
+document.addEventListener("DOMContentLoaded", boot);
