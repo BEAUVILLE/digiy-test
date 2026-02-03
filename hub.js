@@ -18,8 +18,9 @@ const state = {
    ========================= */
 const LINKS = {
   digiylyfe:    "https://digiylyfe.com",
-  tarifs:       "https://beauville.github.io/DIGIY/",
+  tarifs:       "https://beauville.github.io/digiy/",
   ndimbalMap:   "https://beauville.github.io/digiy-mdimbal-map/",
+  hubDrive:     "https://beauville.github.io/digiy-hub-drive/",
 
   // Public
   bonneAffaire: "https://beauville.github.io/digiy-bonne-affaire/",
@@ -787,7 +788,7 @@ function boot() {
 
       // Router l'action
       if (action === "sell") {
-        hub.open(withPhone(LINKS.jobs, state.phone, "phone"));
+        hub.open(withPhone(LINKS.hubDrive, state.phone, "phone"));
       } else if (action === "job") {
         hub.open(withPhone(LINKS.jobs, state.phone, "phone"));
       } else if (action === "qr") {
